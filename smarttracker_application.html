@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartTracker — Real-Time Expense Tracker & Analytics</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js for Power BI style visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              900: '#064e3b',
+            },
+            accent: {
+              500: '#6366f1',
+              600: '#4f46e5',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(229, 231, 235, 0.8);
+    }
+    .dark .glass-card {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(51, 65, 85, 0.8);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 min-h-screen transition-colors duration-200">
+
+  <div id="app" class="flex flex-col min-h-screen">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 dark:border-slate-700">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          
+          <!-- Logo & Branding -->
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+              <i class="fa-solid font-bold fa-wallet text-xl"></i>
+            </div>
+            <div>
+              <span class="text-xs text-slate-500 dark:text-slate-400 block">Income: <strong id="navMonthlyIncome" class="text-emerald-600 dark:text-emerald-400">₹50,000</strong></span>
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Spend: <span id="navMonthSpend" class="text-slate-900 dark:text-slate-100">₹0</span></span>
+            </div>
+          </div>
+
+          <!-- Cloud Sync Status Pill -->
+          <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 text-xs">
+            <span class="relative flex h-2.5 w-2.5">
+              <span id="syncPulse" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span id="syncDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span id="syncStatusLabel" class="font-medium text-slate-600 dark:text-slate-300">Cloud Sync Active</span>
+          </div>
+
+          <!-- Pre-fill Demo Data Button -->
+          <button onclick="window.loadDemo30DaysData()" class="hidden sm:flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm transition active:scale-95">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Load 30-Day Demo</span>
+          </button>
+
+          <!-- User Auth & Profile Settings Button -->
+          <div id="authUserBadge" class="flex items-center gap-2">
+            <button id="authModalBtn" onclick="openAuthModal()" class="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 transition">
+              <i class="fa-solid fa-right-to-bracket text-brand-500"></i>
+              <span id="authBadgeText">Sign In / Register</span>
+            </button>
+            <button onclick="openProfileModal()" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-600 dark:text-slate-200 flex items-center justify-center transition" title="User Profile Settings">
+              <i class="fa-solid fa-user-gear"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+      <!-- Navigation Tabs -->
+      <div class="flex items-center space-x-1 sm:space-x-2 bg-slate-200/80 dark:bg-slate-800/80 p-1.5 rounded-2xl mb-6 overflow-x-auto custom-scrollbar">
+        <button id="tab-btn-quicklog" onclick="switchTab('quicklog')" class="tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition duration-200 bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm">
+          <i class="fa-solid fa-bolt text-amber-500"></i>
+          <span>Quick Log</span>
+        </button>
+        <button id="tab-btn-history" onclick="switchTab('history')" class="tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition duration-200 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100">
+          <i class="fa-solid fa-list-check"></i>
+          <span>Expenses Log</span>
+        </button>
+        <button id="tab-btn-analytics" onclick="switchTab('analytics')" class="tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition duration-200 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100">
+          <i class="fa-solid fa-chart-pie text-accent-500"></i>
+          <span>Power BI Analytics</span>
+        </button>
+        <button id="tab-btn-insights" onclick="switchTab('insights')" class="tab-btn flex-1 min-w-[110px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition duration-200 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 relative">
+          <i class="fa-solid fa-brain text-purple-500"></i>
+          <span>Smart Insights</span>
+          <span id="insightBadge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-pulse"></span>
+        </button>
+      </div>
+
+      <section id="tab-quicklog" class="tab-content space-y-6">
+        
+        <!-- Notebook Banner -->
+        <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+          <div class="absolute -right-6 -bottom-6 opacity-10 text-9xl">
+            <i class="fa-solid fa-book-bookmark"></i>
+          </div>
+          <div class="relative z-10 max-w-2xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-medium mb-3">
+              <i class="fa-solid fa-cloud-arrow-up text-emerald-300"></i>
+              Real-Time Instant Cloud Backup
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Replace Physical Expense Notebooks</h2>
+            <p class="text-emerald-100 text-xs sm:text-sm mt-1">
+              Insert your daily expenses in under 5 seconds. Every entry updates automatically in real-time across devices!
+            </p>
+          </div>
+        </div>
+
+        <!-- Expense Entry Form Card -->
+        <div class="glass-card rounded-3xl p-6 shadow-xl border border-slate-200/80 dark:border-slate-800">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              <i class="fa-solid fa-pen-to-square text-brand-500"></i>
+              <span>Log Daily Expense</span>
+            </h3>
+            <span class="text-xs font-semibold px-2.5 py-1 bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 rounded-lg border border-brand-200 dark:border-brand-800">
+              <i class="fa-solid fa-bolt text-amber-500 mr-1"></i> Live Insert
+            </span>
+          </div>
+
+          <!-- Quick Preset Tag Chips -->
+          <div class="mb-5">
+            <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+              Fast Presets
+            </label>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" onclick="window.applyPreset('Drink / Chai', 'Food & Beverages', 20, 'UPI')" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700/80 hover:bg-emerald-50 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition active:scale-95">
+                ☕ Chai / Drink <span class="font-bold text-emerald-600">₹20</span>
+              </button>
+              <button type="button" onclick="window.applyPreset('Snacks / Biscuits', 'Food & Beverages', 30, 'Cash')" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700/80 hover:bg-emerald-50 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition active:scale-95">
+                🍪 Daily Snacks <span class="font-bold text-emerald-600">₹30</span>
+              </button>
+              <button type="button" onclick="window.applyPreset('Auto / Bus Fare', 'Transport', 40, 'Cash')" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700/80 hover:bg-emerald-50 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition active:scale-95">
+                🚌 Bus Ticket <span class="font-bold text-emerald-600">₹40</span>
+              </button>
+              <button type="button" onclick="window.applyPreset('Lunch / Tiffin', 'Food & Beverages', 120, 'UPI')" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700/80 hover:bg-emerald-50 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition active:scale-95">
+                🍛 Lunch <span class="font-bold text-emerald-600">₹120</span>
+              </button>
+              <button type="button" onclick="window.applyPreset('Daily Grocery', 'Groceries & Home', 250, 'UPI')" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700/80 hover:bg-emerald-50 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5 transition active:scale-95">
+                🛒 Grocery <span class="font-bold text-emerald-600">₹250</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Expense Input Form -->
+          <form id="expenseForm" onsubmit="window.handleExpenseSubmit(event)" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              <!-- Date Input -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Date</label>
+                <div class="relative">
+                  <input type="date" id="expDate" required class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none transition">
+                  <i class="fa-solid fa-calendar-day absolute left-3 top-3 text-slate-400 text-sm"></i>
+                </div>
+              </div>
+
+              <!-- Item Name -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Item Name / Description</label>
+                <div class="relative">
+                  <input type="text" id="expItem" placeholder="e.g. Cold Drink, Bus Ticket" required class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none transition">
+                  <i class="fa-solid fa-tag absolute left-3 top-3 text-slate-400 text-sm"></i>
+                </div>
+              </div>
+
+              <!-- Category Dropdown -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Category</label>
+                <div class="relative">
+                  <select id="expCategory" required class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none transition appearance-none">
+                    <option value="Food & Beverages">☕ Food & Beverages</option>
+                    <option value="Groceries & Home">🛒 Groceries & Home</option>
+                    <option value="Transport">🚌 Transport & Fuel</option>
+                    <option value="Shopping">🛍️ Shopping & Clothes</option>
+                    <option value="Bills & Utilities">⚡ Bills & Utilities</option>
+                    <option value="Entertainment">🎬 Entertainment & Outings</option>
+                    <option value="Health">💊 Health & Medical</option>
+                    <option value="Miscellaneous">📦 Miscellaneous</option>
+                  </select>
+                  <i class="fa-solid fa-shapes absolute left-3 top-3 text-slate-400 text-sm"></i>
+                  <i class="fa-solid fa-chevron-down absolute right-3 top-3 text-slate-400 text-xs pointer-events-none"></i>
+                </div>
+              </div>
+
+              <!-- Amount Input -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Amount</label>
+                <div class="relative">
+                  <span class="absolute left-3 top-2.5 font-bold text-slate-400 text-sm currency-symbol">₹</span>
+                  <input type="number" id="expAmount" min="1" step="any" placeholder="0.00" required class="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:outline-none transition">
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Payment Method Selector -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Payment Method</label>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button type="button" onclick="window.selectPayment('UPI')" id="btn-pay-UPI" class="pay-method-btn flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-brand-500 bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 font-semibold text-xs transition ring-2 ring-brand-500/20">
+                  <i class="fa-solid fa-mobile-screen"></i> UPI / GPay
+                </button>
+                <button type="button" onclick="window.selectPayment('Cash')" id="btn-pay-Cash" class="pay-method-btn flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium text-xs transition">
+                  <i class="fa-solid fa-money-bill-wave"></i> Cash
+                </button>
+                <button type="button" onclick="window.selectPayment('DebitCard')" id="btn-pay-DebitCard" class="pay-method-btn flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium text-xs transition">
+                  <i class="fa-solid fa-credit-card"></i> Debit Card
+                </button>
+                <button type="button" onclick="window.selectPayment('CreditCard')" id="btn-pay-CreditCard" class="pay-method-btn flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium text-xs transition">
+                  <i class="fa-solid fa-credit-card"></i> Credit Card
+                </button>
+              </div>
+              <input type="hidden" id="expPayment" value="UPI">
+            </div>
+
+            <!-- Submit Button -->
+            <div class="pt-2 flex items-center justify-end gap-3">
+              <button type="reset" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                Clear
+              </button>
+              <button type="submit" id="submitBtn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-600 hover:from-brand-700 hover:to-emerald-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-brand-500/20 active:scale-95 transition flex items-center gap-2">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>Insert Real-Time Expense</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Today's Logged Items Stream -->
+        <div class="glass-card rounded-3xl p-6 shadow-md border border-slate-200/80 dark:border-slate-800">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-800 dark:text-slate-100">Today's Real-Time Logged Stream</h3>
+              <p class="text-xs text-slate-500" id="todayDateLabel">Real-time entries for today</p>
+            </div>
+            <span id="todayTotalBadge" class="text-xs font-bold px-3 py-1 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded-full">Today: ₹0</span>
+          </div>
+
+          <div id="todayExpenseList" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+            <div class="text-center py-8 text-slate-400 text-xs">
+              <i class="fa-solid fa-receipt text-2xl mb-2 opacity-50 block"></i>
+              No expenses added yet today. Log one above!
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <section id="tab-history" class="tab-content hidden space-y-6">
+        
+        <!-- Controls & Filters -->
+        <div class="glass-card rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="relative w-full sm:w-72">
+            <input type="text" id="searchInput" oninput="window.filterHistory()" placeholder="Search item, category..." class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+          </div>
+
+          <div class="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
+            <select id="categoryFilter" onchange="window.filterHistory()" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <option value="ALL">All Categories</option>
+              <option value="Food & Beverages">Food & Beverages</option>
+              <option value="Groceries & Home">Groceries & Home</option>
+              <option value="Transport">Transport</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Bills & Utilities">Bills & Utilities</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Health">Health</option>
+              <option value="Miscellaneous">Miscellaneous</option>
+            </select>
+
+            <button onclick="window.exportCSV()" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-file-csv text-emerald-600"></i>
+              <span>Export CSV</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- History Table -->
+        <div class="glass-card rounded-3xl shadow-xl overflow-hidden border border-slate-200/80 dark:border-slate-800">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs sm:text-sm">
+              <thead class="bg-slate-100/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-slate-200 dark:border-slate-700">
+                <tr>
+                  <th class="py-3.5 px-4">Date</th>
+                  <th class="py-3.5 px-4">Item Name</th>
+                  <th class="py-3.5 px-4">Category</th>
+                  <th class="py-3.5 px-4">Payment</th>
+                  <th class="py-3.5 px-4 text-right">Amount</th>
+                  <th class="py-3.5 px-4 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody" class="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                <!-- Dynamic Rows -->
+              </tbody>
+            </table>
+          </div>
+          
+          <div id="historyFooter" class="p-4 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs text-slate-500">
+            <span>Total Records: <strong id="recordCount" class="text-slate-800 dark:text-slate-200">0</strong></span>
+            <span>Total Logged Spend: <strong id="historyTotalSpend" class="text-emerald-600 dark:text-emerald-400 font-bold text-sm">₹0</strong></span>
+          </div>
+        </div>
+
+      </section>
+
+      <section id="tab-analytics" class="tab-content hidden space-y-6">
+        
+        <!-- Power BI Banner -->
+        <div class="glass-card rounded-3xl p-6 shadow-xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-2xl font-bold">
+              <i class="fa-solid fa-chart-column"></i>
+            </div>
+            <div>
+              <h2 class="text-xl font-extrabold text-slate-800 dark:text-slate-100">Monthly Power BI Report View</h2>
+              <p class="text-xs text-slate-500">30-Day Power BI Embedded Visualization Pipeline</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="window.openPowerBIPipelineModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition">
+              <i class="fa-solid fa-plug"></i> Power BI Direct Connect
+            </button>
+            <button onclick="window.exportPowerBIJSON()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition">
+              <i class="fa-solid fa-download"></i> Download Dataset (.json)
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Metric Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass-card rounded-2xl p-4 shadow-sm border-l-4 border-emerald-500">
+            <span class="text-xs text-slate-500 font-semibold block uppercase">Total Monthly Income</span>
+            <div class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1" id="kpiIncome">₹50,000</div>
+            <span class="text-[11px] text-emerald-600 font-medium flex items-center gap-1 mt-1">
+              <i class="fa-solid fa-wallet"></i> Primary Budget Base
+            </span>
+          </div>
+
+          <div class="glass-card rounded-2xl p-4 shadow-sm border-l-4 border-rose-500">
+            <span class="text-xs text-slate-500 font-semibold block uppercase">30-Day Expense Total</span>
+            <div class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1" id="kpiExpense">₹0</div>
+            <span class="text-[11px] text-slate-400 font-medium mt-1 block" id="kpiExpenseRatio">0% of income spent</span>
+          </div>
+
+          <div class="glass-card rounded-2xl p-4 shadow-sm border-l-4 border-indigo-500">
+            <span class="text-xs text-slate-500 font-semibold block uppercase">Remaining Balance</span>
+            <div class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1" id="kpiBalance">₹50,000</div>
+            <span class="text-[11px] text-indigo-500 font-medium mt-1 block" id="kpiSavingsRate">Savings Rate: 100%</span>
+          </div>
+
+          <div class="glass-card rounded-2xl p-4 shadow-sm border-l-4 border-amber-500">
+            <span class="text-xs text-slate-500 font-semibold block uppercase">Highest Single Spend</span>
+            <div class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1" id="kpiMaxItem">₹0</div>
+            <span class="text-[11px] text-slate-400 truncate mt-1 block" id="kpiMaxItemLabel">None</span>
+          </div>
+        </div>
+
+        <!-- Power BI Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="glass-card rounded-3xl p-5 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-emerald-500"></i>
+                Daily Expense Trend (Spike Analysis)
+              </h3>
+              <span class="text-[11px] text-slate-400">30-Day Timeline</span>
+            </div>
+            <div class="relative h-64 w-full">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-3xl p-5 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie text-indigo-500"></i>
+                Category Breakdown Share (%)
+              </h3>
+              <span class="text-[11px] text-slate-400">Share of Total Spend</span>
+            </div>
+            <div class="relative h-64 w-full flex items-center justify-center">
+              <canvas id="categoryChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-3xl p-5 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <i class="fa-solid fa-credit-card text-purple-500"></i>
+                Payment Channel Distribution
+              </h3>
+              <span class="text-[11px] text-slate-400">Cash vs Digital</span>
+            </div>
+            <div class="relative h-64 w-full">
+              <canvas id="paymentChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-3xl p-5 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <i class="fa-solid fa-fire text-rose-500"></i>
+                Top 5 Single Largest Expenses
+              </h3>
+              <span class="text-[11px] text-slate-400">Outlier Purchases</span>
+            </div>
+            <div class="relative h-64 w-full">
+              <canvas id="topExpensesChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <section id="tab-insights" class="tab-content hidden space-y-6">
+        <div class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 shadow-xl border border-indigo-500/30">
+          <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-semibold mb-2">
+                <i class="fa-solid fa-robot"></i> Intelligent Recommendation Engine
+              </div>
+              <h2 class="text-2xl font-black tracking-tight">Smart Financial Advice Engine</h2>
+              <p class="text-slate-300 text-xs sm:text-sm mt-1 max-w-xl">
+                SmartTracker scans your daily logs to catch hidden money leaks, micro-expense habits (like daily drinks or snacks), and over-budget categories.
+              </p>
+            </div>
+            <button onclick="window.runSmartInsightsEngine()" class="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 font-bold text-xs rounded-xl shadow-lg active:scale-95 transition flex items-center gap-2">
+              <i class="fa-solid fa-arrows-rotate"></i> Re-Analyze Spend Patterns
+            </button>
+          </div>
+        </div>
+
+        <div id="insightsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Recommendation Cards Stream -->
+        </div>
+      </section>
+
+    </main>
+
+    <div id="profileModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+      <div class="glass-card rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-slate-200 dark:border-slate-700">
+        <button onclick="closeProfileModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+
+        <h3 class="text-lg font-bold mb-1 text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          <i class="fa-solid fa-user-pen text-brand-500"></i> User Profile & Budget Goals
+        </h3>
+        <p class="text-xs text-slate-500 mb-4">Set your monthly earnings to enable Smart Insights and budget alerts.</p>
+
+        <form id="profileForm" onsubmit="saveProfileSettings(event)" class="space-y-4">
+          <div class="p-3 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase font-bold">Current Account</span>
+              <span id="profAccountEmail" class="font-bold text-slate-700 dark:text-slate-200">Guest Mode</span>
+            </div>
+            <button type="button" onclick="handleSignOut()" class="px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+            </button>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Full Name</label>
+            <input type="text" id="profName" value="Financial User" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Phone Number</label>
+            <input type="tel" id="profPhone" value="+91 9876543210" required class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Currency Preference</label>
+            <select id="profCurrency" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <option value="₹">₹ INR (Indian Rupee)</option>
+              <option value="$">$ USD (US Dollar)</option>
+              <option value="€">€ EUR (Euro)</option>
+              <option value="£">£ GBP (British Pound)</option>
+              <option value="AED">AED (UAE Dirham)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Monthly Income Target</label>
+            <div class="relative">
+              <span class="absolute left-3 top-2 text-xs font-bold text-slate-400 currency-symbol">₹</span>
+              <input type="number" id="profIncome" value="50000" min="1000" step="500" required class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" onclick="window.closeProfileModal()" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-500 transition">Cancel</button>
+            <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-md transition">Save Profile</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="authModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+      <div class="glass-card rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative border border-slate-200 dark:border-slate-700">
+        <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+
+        <div class="text-center mb-6">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-500 text-white mx-auto flex items-center justify-center text-2xl shadow-md mb-3">
+            <i class="fa-solid fa-wallet"></i>
+          </div>
+          <h3 class="text-xl font-extrabold text-slate-800 dark:text-slate-100">Welcome to SmartTracker</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Sign in or create an account to back up expenses to real-time cloud</p>
+        </div>
+
+        <!-- Auth Tabs: Login vs Register -->
+        <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-5">
+          <button id="tab-auth-login" type="button" onclick="switchAuthTab('login')" class="flex-1 py-2 text-xs font-bold rounded-lg bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm transition">
+            <i class="fa-solid fa-right-to-bracket mr-1"></i> Login
+          </button>
+          <button id="tab-auth-register" type="button" onclick="switchAuthTab('register')" class="flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 transition">
+            <i class="fa-solid fa-user-plus mr-1"></i> Register
+          </button>
+        </div>
+
+        <!-- Error Alert Banner -->
+        <div id="authAlert" class="hidden mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-medium flex items-center gap-2">
+          <i class="fa-solid fa-circle-exclamation text-base shrink-0"></i>
+          <span id="authAlertText">Error message</span>
+        </div>
+
+        <!-- Form 1: LOGIN -->
+        <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Address</label>
+            <div class="relative">
+              <input type="email" id="loginEmail" required placeholder="user@example.com" class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <i class="fa-solid fa-envelope absolute left-3 top-3 text-slate-400 text-xs"></i>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Password</label>
+            <div class="relative">
+              <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <i class="fa-solid fa-lock absolute left-3 top-3 text-slate-400 text-xs"></i>
+            </div>
+          </div>
+
+          <button type="submit" id="loginBtn" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-600 hover:from-brand-700 hover:to-emerald-700 text-white text-xs font-bold shadow-md transition active:scale-95 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-right-to-bracket"></i>
+            <span>Log In</span>
+          </button>
+        </form>
+
+        <!-- Form 2: REGISTER -->
+        <form id="registerForm" onsubmit="handleRegisterSubmit(event)" class="space-y-3 hidden">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Full Name</label>
+            <div class="relative">
+              <input type="text" id="regName" required placeholder="John Doe" class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <i class="fa-solid fa-user absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Phone Number</label>
+            <div class="relative">
+              <input type="tel" id="regPhone" required placeholder="+91 9876543210" class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <i class="fa-solid fa-phone absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Address</label>
+            <div class="relative">
+              <input type="email" id="regEmail" required placeholder="user@example.com" class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <i class="fa-solid fa-envelope absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Password</label>
+            <div class="relative">
+              <input type="password" id="regPassword" required minlength="6" placeholder="Min 6 characters" class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+              <i class="fa-solid fa-lock absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Currency Preference</label>
+            <div class="relative">
+              <select id="regCurrency" required class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none appearance-none">
+                <option value="₹">₹ INR (Indian Rupee)</option>
+                <option value="$">$ USD (US Dollar)</option>
+                <option value="€">€ EUR (Euro)</option>
+                <option value="£">£ GBP (British Pound)</option>
+                <option value="AED">AED (UAE Dirham)</option>
+              </select>
+              <i class="fa-solid fa-coins absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+              <i class="fa-solid fa-chevron-down absolute right-3 top-2.5 text-slate-400 text-xs pointer-events-none"></i>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Monthly Income</label>
+            <div class="relative">
+              <span class="absolute left-3 top-2 text-xs font-bold text-slate-400 currency-symbol">₹</span>
+              <input type="number" id="regIncome" value="50000" min="1000" step="500" required class="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-emerald-600 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </div>
+          </div>
+
+          <button type="submit" id="regBtn" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-600 hover:from-brand-700 hover:to-emerald-700 text-white text-xs font-bold shadow-md transition active:scale-95 flex items-center justify-center gap-2 mt-2">
+            <i class="fa-solid fa-user-check"></i>
+            <span>Create Account</span>
+          </button>
+        </form>
+
+        <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 text-center">
+          <button type="button" onclick="continueAsGuest()" class="text-xs text-slate-500 dark:text-slate-400 hover:text-brand-600 font-medium transition">
+            ⚡ Quick Guest Mode (Try without registration)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="powerBIModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+      <div class="glass-card rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative border border-slate-200 dark:border-slate-700">
+        <button onclick="window.closePowerBIModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+
+        <div class="flex items-center gap-3 mb-3">
+          <i class="fa-solid fa-diagram-project text-2xl text-amber-500"></i>
+          <div>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">Power BI Data Integration Strategy</h3>
+            <p class="text-xs text-slate-500">Methods to connect SmartTracker to Power BI Desktop / Service</p>
+          </div>
+        </div>
+
+        <div class="space-y-3 text-xs text-slate-600 dark:text-slate-300 max-h-96 overflow-y-auto custom-scrollbar pr-1">
+          <div class="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
+            <strong class="text-amber-700 dark:text-amber-400 block mb-1">Method A: Direct Power BI Streaming REST API</strong>
+            <p class="mb-2">Push each daily expense payload instantly to Power BI Real-time Streaming Dataset URL:</p>
+            <code class="block bg-slate-950 text-emerald-400 p-2 rounded-lg font-mono text-[11px] overflow-x-auto">
+POST https://api.powerbi.com/beta/tenant-id/datasets/.../rows
+Headers: {"Content-Type": "application/json"}
+Payload: [{"date": "2026-08-01", "item_name": "Drink", "category": "Food & Beverages", "amount": 20}]
+            </code>
+          </div>
+
+          <div class="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+            <strong class="text-slate-800 dark:text-slate-200 block mb-1">Method B: Direct Query via PostgreSQL Database</strong>
+            <code class="block bg-slate-950 text-indigo-300 p-2 rounded-lg font-mono text-[11px] mt-1 overflow-x-auto">
+SELECT date_trunc('month', expense_date) AS month, category, SUM(amount) AS total_spend
+FROM expenses WHERE user_id = :user_id GROUP BY 1, 2 ORDER BY total_spend DESC;
+            </code>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+          <button onclick="window.closePowerBIModal()" class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold">Got it!</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification Box -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transition duration-300 opacity-0 pointer-events-none z-50 text-xs font-medium">
+      <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+      <span id="toastMsg">Action completed successfully.</span>
+    </div>
+
+  </div>
+
+  <script>
+    window.expenses = [];
+    window.userProfile = {
+      name: "Financial User",
+      phone: "+91 9876543210",
+      currency: "₹",
+      income: 50000,
+      savingsGoalPct: 20
+    };
+
+    window.trendChartInstance = null;
+    window.categoryChartInstance = null;
+    window.paymentChartInstance = null;
+    window.topExpensesChartInstance = null;
+
+    const categoryColors = {
+      "Food & Beverages": "#f59e0b",
+      "Groceries & Home": "#10b981",
+      "Transport": "#3b82f6",
+      "Shopping": "#ec4899",
+      "Bills & Utilities": "#ef4444",
+      "Entertainment": "#8b5cf6",
+      "Health": "#06b6d4",
+      "Miscellaneous": "#64748b"
+    };
+
+    function openAuthModal() {
+      hideAuthAlert();
+      const modal = document.getElementById('authModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+    window.openAuthModal = openAuthModal;
+
+    function closeAuthModal() {
+      const modal = document.getElementById('authModal');
+      if (modal) modal.classList.add('hidden');
+    }
+    window.closeAuthModal = closeAuthModal;
+
+    function showAuthAlert(msg) {
+      const alertBox = document.getElementById('authAlert');
+      const textNode = document.getElementById('authAlertText');
+      if (textNode) textNode.innerText = msg;
+      if (alertBox) alertBox.classList.remove('hidden');
+    }
+    window.showAuthAlert = showAuthAlert;
+
+    function hideAuthAlert() {
+      const alertBox = document.getElementById('authAlert');
+      if (alertBox) alertBox.classList.add('hidden');
+    }
+    window.hideAuthAlert = hideAuthAlert;
+
+    function switchAuthTab(tab) {
+      hideAuthAlert();
+      const loginTabBtn = document.getElementById('tab-auth-login');
+      const regTabBtn = document.getElementById('tab-auth-register');
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+
+      if (tab === 'login') {
+        if (loginTabBtn) loginTabBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm transition";
+        if (regTabBtn) regTabBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 transition";
+        if (loginForm) loginForm.classList.remove('hidden');
+        if (registerForm) registerForm.classList.add('hidden');
+      } else {
+        if (regTabBtn) regTabBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-400 shadow-sm transition";
+        if (loginTabBtn) loginTabBtn.className = "flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 transition";
+        if (registerForm) registerForm.classList.remove('hidden');
+        if (loginForm) loginForm.classList.add('hidden');
+      }
+    }
+    window.switchAuthTab = switchAuthTab;
+
+    function openProfileModal() {
+      const nameEl = document.getElementById('profName');
+      const phoneEl = document.getElementById('profPhone');
+      const currEl = document.getElementById('profCurrency');
+      const incEl = document.getElementById('profIncome');
+
+      if (nameEl) nameEl.value = window.userProfile.name || '';
+      if (phoneEl) phoneEl.value = window.userProfile.phone || '';
+      if (currEl) currEl.value = window.userProfile.currency || '₹';
+      if (incEl) incEl.value = window.userProfile.income || 50000;
+
+      const modal = document.getElementById('profileModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+    window.openProfileModal = openProfileModal;
+
+    function closeProfileModal() {
+      const modal = document.getElementById('profileModal');
+      if (modal) modal.classList.add('hidden');
+    }
+    window.closeProfileModal = closeProfileModal;
+
+    function openPowerBIPipelineModal() {
+      const modal = document.getElementById('powerBIModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+    window.openPowerBIPipelineModal = openPowerBIPipelineModal;
+
+    function closePowerBIModal() {
+      const modal = document.getElementById('powerBIModal');
+      if (modal) modal.classList.add('hidden');
+    }
+    window.closePowerBIModal = closePowerBIModal;
+
+    function continueAsGuest() {
+      closeAuthModal();
+      showToast("Continuing in Guest Mode", "info");
+    }
+    window.continueAsGuest = continueAsGuest;
+
+    function getTodayDateString() {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    function formatDisplayDate(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function showToast(msg, type = 'success') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+
+      if (!toast || !toastMsg || !toastIcon) return;
+
+      toastMsg.innerText = msg;
+      if (type === 'error') {
+        toastIcon.className = "fa-solid fa-circle-xmark text-rose-400 text-base";
+      } else if (type === 'info') {
+        toastIcon.className = "fa-solid fa-circle-info text-sky-400 text-base";
+      } else {
+        toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-base";
+      }
+
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 3000);
+    }
+    window.showToast = showToast;
+
+    function saveProfileSettings(e) {
+      if (e) e.preventDefault();
+      const nameEl = document.getElementById('profName');
+      const phoneEl = document.getElementById('profPhone');
+      const currEl = document.getElementById('profCurrency');
+      const incEl = document.getElementById('profIncome');
+
+      window.userProfile.name = nameEl ? nameEl.value : window.userProfile.name;
+      window.userProfile.phone = phoneEl ? phoneEl.value : window.userProfile.phone;
+      window.userProfile.currency = currEl ? currEl.value : (window.userProfile.currency || '₹');
+      window.userProfile.income = incEl ? (parseFloat(incEl.value) || 50000) : window.userProfile.income;
+
+      try {
+        localStorage.setItem('smarttracker_user', JSON.stringify(window.userProfile));
+      } catch (err) {
+        console.warn("Could not save profile settings to localStorage:", err);
+      }
+
+      updateProfileUI();
+      renderAllViews();
+      closeProfileModal();
+      showToast("Profile settings updated!");
+    }
+    window.saveProfileSettings = saveProfileSettings;
+
+    function updateProfileUI() {
+      const symbol = window.userProfile.currency || '₹';
+      const inc = window.userProfile.income || 50000;
+      const el = document.getElementById('navMonthlyIncome');
+      if (el) el.innerText = `${symbol}${inc.toLocaleString('en-IN')}`;
+
+      document.querySelectorAll('.currency-symbol').forEach(node => {
+        node.innerText = symbol;
+      });
+    }
+    window.updateProfileUI = updateProfileUI;
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-white', 'dark:bg-slate-700', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+        btn.classList.add('text-slate-600', 'dark:text-slate-400');
+      });
+
+      const targetTab = document.getElementById(`tab-${tabName}`);
+      const targetBtn = document.getElementById(`tab-btn-${tabName}`);
+
+      if (targetTab) targetTab.classList.remove('hidden');
+      if (targetBtn) {
+        targetBtn.classList.add('bg-white', 'dark:bg-slate-700', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+        targetBtn.classList.remove('text-slate-600', 'dark:text-slate-400');
+      }
+
+      if (tabName === 'analytics') {
+        renderCharts();
+      } else if (tabName === 'insights') {
+        runSmartInsightsEngine();
+      }
+    }
+    window.switchTab = switchTab;
+
+    function selectPayment(method) {
+      const sanitizedMethod = method.replace(/\s+/g, '');
+      const payInput = document.getElementById('expPayment');
+      if (payInput) payInput.value = method;
+      
+      document.querySelectorAll('.pay-method-btn').forEach(btn => {
+        btn.classList.remove('border-brand-500', 'bg-brand-50', 'dark:bg-brand-950/40', 'text-brand-700', 'dark:text-brand-300', 'font-semibold', 'ring-2', 'ring-brand-500/20');
+        btn.classList.add('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-400', 'font-medium');
+      });
+
+      const selectedBtn = document.getElementById(`btn-pay-${sanitizedMethod}`) || document.getElementById(`btn-pay-${method}`);
+      if (selectedBtn) {
+        selectedBtn.classList.add('border-brand-500', 'bg-brand-50', 'dark:bg-brand-950/40', 'text-brand-700', 'dark:text-brand-300', 'font-semibold', 'ring-2', 'ring-brand-500/20');
+        selectedBtn.classList.remove('border-slate-200', 'dark:border-slate-700', 'text-slate-600', 'dark:text-slate-400', 'font-medium');
+      }
+    }
+    window.selectPayment = selectPayment;
+
+    function applyPreset(item, category, amount, payment) {
+      const itemEl = document.getElementById('expItem');
+      const catEl = document.getElementById('expCategory');
+      const amtEl = document.getElementById('expAmount');
+
+      if (itemEl) itemEl.value = item;
+      if (catEl) catEl.value = category;
+      if (amtEl) amtEl.value = amount;
+      selectPayment(payment);
+      showToast(`Preset loaded: ${item} (${window.userProfile.currency || '₹'}${amount})`, 'info');
+    }
+    window.applyPreset = applyPreset;
+
+    function saveExpensesToLocal() {
+      try {
+        localStorage.setItem('smarttracker_expenses', JSON.stringify(window.expenses));
+      } catch (err) {
+        console.warn("Could not save expenses to localStorage:", err);
+      }
+    }
+
+    function loadExpensesFromLocal() {
+      const saved = localStorage.getItem('smarttracker_expenses');
+      if (saved) {
+        try {
+          window.expenses = JSON.parse(saved);
+        } catch (err) {
+          console.warn("Could not parse saved expenses:", err);
+          window.expenses = [];
+        }
+      }
+    }
+
+    function handleExpenseSubmit(e) {
+      if (e) e.preventDefault();
+
+      const dateVal = document.getElementById('expDate')?.value || getTodayDateString();
+      const itemVal = document.getElementById('expItem')?.value.trim();
+      const categoryVal = document.getElementById('expCategory')?.value || 'Food & Beverages';
+      const amountVal = parseFloat(document.getElementById('expAmount')?.value);
+      const paymentVal = document.getElementById('expPayment')?.value || 'UPI';
+
+      if (!itemVal || isNaN(amountVal) || amountVal <= 0) {
+        showToast("Please enter valid item name and amount", "error");
+        return;
+      }
+
+      const newExpense = {
+        id: Date.now().toString(),
+        date: dateVal,
+        item: itemVal,
+        category: categoryVal,
+        amount: amountVal,
+        payment: paymentVal,
+        createdAt: new Date().toISOString()
+      };
+
+      window.expenses.unshift(newExpense);
+      saveExpensesToLocal();
+
+      if (document.getElementById('expItem')) document.getElementById('expItem').value = '';
+      if (document.getElementById('expAmount')) document.getElementById('expAmount').value = '';
+
+      renderAllViews();
+      showToast(`⚡ Saved: ${window.userProfile.currency || '₹'}${amountVal} for "${itemVal}"!`);
+
+      if (window.cloudInsertExpense) {
+        window.cloudInsertExpense(newExpense);
+      }
+    }
+    window.handleExpenseSubmit = handleExpenseSubmit;
+
+    function deleteExpense(id) {
+      window.expenses = window.expenses.filter(x => x.id !== id);
+      saveExpensesToLocal();
+      renderAllViews();
+      showToast("Expense entry deleted");
+
+      if (window.cloudDeleteExpense) {
+        window.cloudDeleteExpense(id);
+      }
+    }
+    window.deleteExpense = deleteExpense;
+
+    function loadDemo30DaysData(showNotification = true) {
+      if (showNotification) {
+        showToast("Generating 30-day demo logs...", "info");
+      }
+
+      const demoList = [];
+      const today = new Date();
+
+      for (let i = 0; i < 30; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+
+        demoList.push({
+          id: `demo-${i}-1`,
+          date: dateStr,
+          item: 'Daily Tea / Cold Drink',
+          category: 'Food & Beverages',
+          amount: Math.random() > 0.5 ? 20 : 35,
+          payment: 'UPI',
+          createdAt: d.toISOString()
+        });
+
+        if (i % 2 === 0) {
+          demoList.push({
+            id: `demo-${i}-2`,
+            date: dateStr,
+            item: 'Bus & Auto Fare',
+            category: 'Transport',
+            amount: 50,
+            payment: 'Cash',
+            createdAt: d.toISOString()
+          });
+        }
+
+        if (i % 3 === 0) {
+          demoList.push({
+            id: `demo-${i}-3`,
+            date: dateStr,
+            item: 'Biscuits / Evening Snack',
+            category: 'Food & Beverages',
+            amount: 40,
+            payment: 'Cash',
+            createdAt: d.toISOString()
+          });
+        }
+
+        if (i % 7 === 0) {
+          demoList.push({
+            id: `demo-${i}-4`,
+            date: dateStr,
+            item: 'Weekly Grocery Purchase',
+            category: 'Groceries & Home',
+            amount: 850 + Math.floor(Math.random() * 400),
+            payment: 'UPI',
+            createdAt: d.toISOString()
+          });
+        }
+
+        if (i === 5 || i === 12 || i === 22) {
+          demoList.push({
+            id: `demo-${i}-5`,
+            date: dateStr,
+            item: 'Restaurant Outing & Swiggy',
+            category: 'Food & Beverages',
+            amount: 1400,
+            payment: 'Credit Card',
+            createdAt: d.toISOString()
+          });
+        }
+
+        if (i === 10) {
+          demoList.push({
+            id: `demo-${i}-6`,
+            date: dateStr,
+            item: 'House Rent & Electricity',
+            category: 'Bills & Utilities',
+            amount: 12500,
+            payment: 'UPI',
+            createdAt: d.toISOString()
+          });
+        }
+      }
+
+      window.expenses = demoList;
+      saveExpensesToLocal();
+      renderAllViews();
+
+      if (showNotification) {
+        showToast("Loaded 30-Day Demo Logs!");
+      }
+
+      if (window.cloudBatchInsert) {
+        window.cloudBatchInsert(demoList);
+      }
+    }
+    window.loadDemo30DaysData = loadDemo30DaysData;
+
+    function renderAllViews() {
+      renderTodayList();
+      renderHistoryTable();
+      updateHeaderAndKPIs();
+
+      if (!document.getElementById('tab-analytics')?.classList.contains('hidden')) {
+        renderCharts();
+      }
+      if (!document.getElementById('tab-insights')?.classList.contains('hidden')) {
+        runSmartInsightsEngine();
+      }
+    }
+    window.renderAllViews = renderAllViews;
+
+    function renderTodayList() {
+      const todayStr = getTodayDateString();
+      const todayItems = window.expenses.filter(x => x.date === todayStr);
+      const todayTotal = todayItems.reduce((sum, item) => sum + item.amount, 0);
+      const symbol = window.userProfile.currency || '₹';
+
+      const badge = document.getElementById('todayTotalBadge');
+      if (badge) badge.innerText = `Today: ${symbol}${todayTotal.toLocaleString('en-IN')}`;
+
+      const container = document.getElementById('todayExpenseList');
+      if (!container) return;
+
+      if (todayItems.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-slate-400 text-xs">
+            <i class="fa-solid fa-receipt text-3xl mb-2 opacity-50 block"></i>
+            No expenses inserted today yet. Add one above!
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = todayItems.map(item => `
+        <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-sm font-bold">
+              ${symbol}
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-slate-800 dark:text-slate-200">${escapeHtml(item.item)}</h4>
+              <span class="text-[10px] text-slate-400">${escapeHtml(item.category)} • ${escapeHtml(item.payment)}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-extrabold text-slate-800 dark:text-slate-100">${symbol}${item.amount.toLocaleString('en-IN')}</span>
+            <button onclick="deleteExpense('${escapeHtml(item.id)}')" class="text-slate-400 hover:text-rose-500 text-xs p-1" title="Delete entry">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+    window.renderTodayList = renderTodayList;
+
+    function renderHistoryTable() {
+      const tbody = document.getElementById('historyTableBody');
+      if (!tbody) return;
+
+      const searchVal = document.getElementById('searchInput')?.value.toLowerCase() || '';
+      const catVal = document.getElementById('categoryFilter')?.value || 'ALL';
+      const symbol = window.userProfile.currency || '₹';
+
+      let filtered = window.expenses.filter(item => {
+        const matchesSearch = item.item.toLowerCase().includes(searchVal) || item.category.toLowerCase().includes(searchVal);
+        const matchesCat = (catVal === 'ALL') || (item.category === catVal);
+        return matchesSearch && matchesCat;
+      });
+
+      filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+      const countNode = document.getElementById('recordCount');
+      if (countNode) countNode.innerText = filtered.length;
+
+      const totalSpend = filtered.reduce((s, x) => s + x.amount, 0);
+      const spendNode = document.getElementById('historyTotalSpend');
+      if (spendNode) spendNode.innerText = `${symbol}${totalSpend.toLocaleString('en-IN')}`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="py-8 text-center text-slate-400 text-xs">
+              No expenses matching search filter.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(item => `
+        <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+          <td class="py-3 px-4 font-mono text-xs text-slate-500">${formatDisplayDate(item.date)}</td>
+          <td class="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">${escapeHtml(item.item)}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              ${escapeHtml(item.category)}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-xs text-slate-500">${escapeHtml(item.payment)}</td>
+          <td class="py-3 px-4 text-right font-bold text-slate-800 dark:text-slate-100">${symbol}${item.amount.toLocaleString('en-IN')}</td>
+          <td class="py-3 px-4 text-center">
+            <button onclick="deleteExpense('${escapeHtml(item.id)}')" class="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950 transition">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+    window.renderHistoryTable = renderHistoryTable;
+
+    function filterHistory() {
+      renderHistoryTable();
+    }
+    window.filterHistory = filterHistory;
+
+    function updateHeaderAndKPIs() {
+      const totalSpend = window.expenses.reduce((sum, item) => sum + item.amount, 0);
+      const income = window.userProfile.income || 50000;
+      const balance = income - totalSpend;
+      const ratio = Math.round((totalSpend / income) * 100);
+      const savingsRate = Math.max(0, Math.round((balance / income) * 100));
+      const symbol = window.userProfile.currency || '₹';
+
+      const navInc = document.getElementById('navMonthlyIncome');
+      const navSpd = document.getElementById('navMonthSpend');
+      if (navInc) navInc.innerText = `${symbol}${income.toLocaleString('en-IN')}`;
+      if (navSpd) navSpd.innerText = `${symbol}${totalSpend.toLocaleString('en-IN')}`;
+
+      const kpiInc = document.getElementById('kpiIncome');
+      const kpiExp = document.getElementById('kpiExpense');
+      const kpiRatio = document.getElementById('kpiExpenseRatio');
+      if (kpiInc) kpiInc.innerText = `${symbol}${income.toLocaleString('en-IN')}`;
+      if (kpiExp) kpiExp.innerText = `${symbol}${totalSpend.toLocaleString('en-IN')}`;
+      if (kpiRatio) kpiRatio.innerText = `${ratio}% of monthly income spent`;
+
+      const kpiBal = document.getElementById('kpiBalance');
+      const kpiSav = document.getElementById('kpiSavingsRate');
+      if (kpiBal) kpiBal.innerText = `${symbol}${balance.toLocaleString('en-IN')}`;
+      if (kpiSav) kpiSav.innerText = `Savings Rate: ${savingsRate}%`;
+
+      const kpiMax = document.getElementById('kpiMaxItem');
+      const kpiMaxLbl = document.getElementById('kpiMaxItemLabel');
+      if (window.expenses.length > 0) {
+        const sorted = [...window.expenses].sort((a,b) => b.amount - a.amount);
+        if (kpiMax) kpiMax.innerText = `${symbol}${sorted[0].amount.toLocaleString('en-IN')}`;
+        if (kpiMaxLbl) kpiMaxLbl.innerText = `${sorted[0].item} (${formatDisplayDate(sorted[0].date)})`;
+      } else {
+        if (kpiMax) kpiMax.innerText = `${symbol}0`;
+        if (kpiMaxLbl) kpiMaxLbl.innerText = `None`;
+      }
+    }
+    window.updateHeaderAndKPIs = updateHeaderAndKPIs;
+
+    function renderCharts() {
+      const symbol = window.userProfile.currency || '₹';
+      const trendEl = document.getElementById('trendChart');
+      if (!trendEl) return;
+
+      // 1. Daily Trend Line Chart
+      const dailyMap = {};
+      window.expenses.forEach(item => {
+        dailyMap[item.date] = (dailyMap[item.date] || 0) + item.amount;
+      });
+
+      const sortedDates = Object.keys(dailyMap).sort();
+      const trendLabels = sortedDates.map(d => formatDisplayDate(d));
+      const trendValues = sortedDates.map(d => dailyMap[d]);
+
+      const ctxTrend = trendEl.getContext('2d');
+      if (window.trendChartInstance) window.trendChartInstance.destroy();
+      window.trendChartInstance = new Chart(ctxTrend, {
+        type: 'line',
+        data: {
+          labels: trendLabels,
+          datasets: [{
+            label: `Daily Spend (${symbol})`,
+            data: trendValues,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 3,
+            pointBackgroundColor: '#047857'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.15)' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+
+      // 2. Category Doughnut Chart
+      const catMap = {};
+      window.expenses.forEach(item => {
+        catMap[item.category] = (catMap[item.category] || 0) + item.amount;
+      });
+
+      const catLabels = Object.keys(catMap);
+      const catValues = Object.values(catMap);
+      const bgColors = catLabels.map(cat => categoryColors[cat] || '#64748b');
+
+      const ctxCategory = document.getElementById('categoryChart')?.getContext('2d');
+      if (ctxCategory) {
+        if (window.categoryChartInstance) window.categoryChartInstance.destroy();
+        window.categoryChartInstance = new Chart(ctxCategory, {
+          type: 'doughnut',
+          data: {
+            labels: catLabels,
+            datasets: [{
+              data: catValues,
+              backgroundColor: bgColors,
+              borderWidth: 2,
+              borderColor: '#ffffff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } }
+            }
+          }
+        });
+      }
+
+      // 3. Payment Method Bar Chart
+      const payMap = {};
+      window.expenses.forEach(item => {
+        payMap[item.payment] = (payMap[item.payment] || 0) + item.amount;
+      });
+
+      const ctxPayment = document.getElementById('paymentChart')?.getContext('2d');
+      if (ctxPayment) {
+        if (window.paymentChartInstance) window.paymentChartInstance.destroy();
+        window.paymentChartInstance = new Chart(ctxPayment, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(payMap),
+            datasets: [{
+              label: `Total via Payment Method (${symbol})`,
+              data: Object.values(payMap),
+              backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ec4899'],
+              borderRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.15)' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+      }
+
+      // 4. Top 5 Expenses
+      const topFive = [...window.expenses].sort((a,b) => b.amount - a.amount).slice(0, 5);
+      const ctxTop = document.getElementById('topExpensesChart')?.getContext('2d');
+      if (ctxTop) {
+        if (window.topExpensesChartInstance) window.topExpensesChartInstance.destroy();
+        window.topExpensesChartInstance = new Chart(ctxTop, {
+          type: 'bar',
+          data: {
+            labels: topFive.map(x => `${x.item} (${formatDisplayDate(x.date)})`),
+            datasets: [{
+              label: `Amount (${symbol})`,
+              data: topFive.map(x => x.amount),
+              backgroundColor: '#ef4444',
+              borderRadius: 6
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.15)' } },
+              y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+            }
+          }
+        });
+      }
+    }
+    window.renderCharts = renderCharts;
+
+    function runSmartInsightsEngine() {
+      const container = document.getElementById('insightsContainer');
+      const badge = document.getElementById('insightBadge');
+      if (!container) return;
+
+      const income = window.userProfile.income || 50000;
+      const totalSpend = window.expenses.reduce((s, x) => s + x.amount, 0);
+      const symbol = window.userProfile.currency || '₹';
+
+      const insights = [];
+
+      // RULE 1: Micro-Expenses
+      const microItems = window.expenses.filter(x => x.amount <= 60 && (
+        x.item.toLowerCase().includes('drink') || 
+        x.item.toLowerCase().includes('tea') || 
+        x.item.toLowerCase().includes('chai') || 
+        x.item.toLowerCase().includes('snack') || 
+        x.item.toLowerCase().includes('biscuit')
+      ));
+
+      const totalMicroSpend = microItems.reduce((s, x) => s + x.amount, 0);
+      const microPct = totalSpend > 0 ? Math.round((totalMicroSpend / totalSpend) * 100) : 0;
+
+      if (totalMicroSpend > 300) {
+        const monthlyPotentialSavings = Math.round(totalMicroSpend * 0.5);
+        const yearlyPotential = monthlyPotentialSavings * 12;
+        insights.push({
+          type: 'warning',
+          icon: 'fa-mug-hot text-amber-500',
+          title: 'Daily Micro-Expense Leak Detected',
+          detected: `You spent ${symbol}${totalMicroSpend.toLocaleString('en-IN')} on minor daily drinks & snacks (${microPct}% of total logged spend).`,
+          recommendation: `Cutting back on drinks/snacks every second day could save you roughly ${symbol}${monthlyPotentialSavings.toLocaleString('en-IN')}/month (or ${symbol}${yearlyPotential.toLocaleString('en-IN')}/year)!`
+        });
+      }
+
+      // RULE 2: Income-to-Expense High Ratio
+      const ratio = (totalSpend / income) * 100;
+      if (ratio > 80) {
+        insights.push({
+          type: 'danger',
+          icon: 'fa-triangle-exclamation text-rose-500',
+          title: 'High Income-to-Expense Ratio Warning',
+          detected: `You have consumed ${Math.round(ratio)}% of your monthly income (${symbol}${totalSpend.toLocaleString('en-IN')} out of ${symbol}${income.toLocaleString('en-IN')}).`,
+          recommendation: `Aim to keep total expenses below 70% of income to build your emergency fund.`
+        });
+      } else if (ratio > 0 && ratio <= 60) {
+        insights.push({
+          type: 'success',
+          icon: 'fa-circle-check text-emerald-500',
+          title: 'Healthy Savings Rate Achieved',
+          detected: `Your expenses are currently at ${Math.round(ratio)}% of your monthly income base.`,
+          recommendation: `Great discipline! You are on track to save over ${100 - Math.round(ratio)}% of your earnings this month.`
+        });
+      }
+
+      // RULE 3: Over-Budget Category
+      const catMap = {};
+      window.expenses.forEach(x => { catMap[x.category] = (catMap[x.category] || 0) + x.amount; });
+      for (const cat in catMap) {
+        const catSpend = catMap[cat];
+        const catPct = totalSpend > 0 ? Math.round((catSpend / totalSpend) * 100) : 0;
+        if (catPct >= 35 && catSpend > 2000) {
+          insights.push({
+            type: 'info',
+            icon: 'fa-chart-pie text-indigo-500',
+            title: `High Concentration in "${cat}"`,
+            detected: `"${cat}" accounts for ${catPct}% (${symbol}${catSpend.toLocaleString('en-IN')}) of your entire spending.`,
+            recommendation: `Consider capping ${cat} spending to 25% of total budget.`
+          });
+        }
+      }
+
+      if (badge) {
+        if (insights.length > 0) badge.classList.remove('hidden');
+        else badge.classList.add('hidden');
+      }
+
+      if (insights.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full text-center py-12 glass-card rounded-3xl">
+            <i class="fa-solid fa-lightbulb text-4xl text-amber-400 mb-3 block"></i>
+            <h4 class="text-base font-bold text-slate-800 dark:text-slate-100">Log More Daily Expenses</h4>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+              SmartTracker needs a few days of expense logs to generate personalized financial advice.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = insights.map(i => `
+        <div class="glass-card rounded-3xl p-5 shadow-lg border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg">
+                <i class="fa-solid ${i.icon}"></i>
+              </div>
+              <h3 class="text-sm font-extrabold text-slate-800 dark:text-slate-100">${escapeHtml(i.title)}</h3>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-300 font-medium bg-slate-100/80 dark:bg-slate-800/60 p-2.5 rounded-xl mb-3">
+              ${escapeHtml(i.detected)}
+            </p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              <strong class="text-brand-600 dark:text-brand-400">Recommendation:</strong> ${escapeHtml(i.recommendation)}
+            </p>
+          </div>
+        </div>
+      `).join('');
+    }
+    window.runSmartInsightsEngine = runSmartInsightsEngine;
+
+    function exportCSV() {
+      if (window.expenses.length === 0) {
+        showToast("No expenses to export", "error");
+        return;
+      }
+
+      let csvContent = "data:text/csv;charset=utf-8,Date,Item Name,Category,Payment Method,Amount\n";
+      window.expenses.forEach(x => {
+        csvContent += `"${x.date}","${x.item.replace(/"/g, '""')}","${x.category}","${x.payment}",${x.amount}\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `SmartTracker_Expenses_${getTodayDateString()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showToast("Exported CSV file for Power BI!");
+    }
+    window.exportCSV = exportCSV;
+
+    function exportPowerBIJSON() {
+      if (window.expenses.length === 0) {
+        showToast("No data to export", "error");
+        return;
+      }
+
+      const dataset = {
+        app: "SmartTracker",
+        exportedAt: new Date().toISOString(),
+        user: window.userProfile,
+        summary: {
+          totalIncome: window.userProfile.income,
+          totalExpenses: window.expenses.reduce((s, x) => s + x.amount, 0),
+          recordCount: window.expenses.length
+        },
+        expenses: window.expenses
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataset, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `PowerBI_Dataset_SmartTracker_${getTodayDateString()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      showToast("Downloaded Power BI JSON dataset!");
+    }
+    window.exportPowerBIJSON = exportPowerBIJSON;
+
+    window.addEventListener('load', () => {
+      const expDateEl = document.getElementById('expDate');
+      if (expDateEl) expDateEl.value = getTodayDateString();
+
+      const todayLabel = document.getElementById('todayDateLabel');
+      if (todayLabel) todayLabel.innerText = `Real-time entries for ${formatDisplayDate(getTodayDateString())}`;
+
+      const savedProfile = localStorage.getItem('smarttracker_user');
+      if (savedProfile) {
+        try {
+          const parsed = JSON.parse(savedProfile);
+          window.userProfile = Object.assign({}, window.userProfile, parsed);
+        } catch (err) {
+          console.warn("Could not parse saved user profile:", err);
+        }
+      }
+
+      updateProfileUI();
+      selectPayment('UPI');
+      loadExpensesFromLocal();
+
+      if (window.expenses.length === 0) {
+        loadDemo30DaysData(false);
+      } else {
+        renderAllViews();
+      }
+    });
+  </script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { 
+      getAuth, 
+      signInAnonymously, 
+      signInWithCustomToken, 
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    let appId = 'smarttracker-demo';
+    try {
+      if (typeof window !== 'undefined' && window.__app_id) {
+        appId = window.__app_id;
+      }
+    } catch (err) {
+      console.warn("App ID fallback:", err);
+    }
+
+    let firebaseConfig = {
+      apiKey: "demo-api-key",
+      authDomain: "smarttracker-demo.firebaseapp.com",
+      projectId: "smarttracker-demo",
+      storageBucket: "smarttracker-demo.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:demo"
+    };
+
+    try {
+      if (typeof window !== 'undefined' && window.__firebase_config) {
+        firebaseConfig = typeof window.__firebase_config === 'string' 
+          ? JSON.parse(window.__firebase_config) 
+          : window.__firebase_config;
+      }
+    } catch (err) {
+      console.warn("Using default demo firebase config:", err);
+    }
+
+    let auth = null;
+    let db = null;
+    let currentUser = null;
+    let expensesUnsubscribe = null;
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+
+      initAuthentication();
+    } catch (err) {
+      console.warn("Cloud Sync running in Local Session Mode:", err);
+      updateSyncStatusUI(false, null);
+    }
+
+    async function initAuthentication() {
+      if (!auth) return;
+
+      let initialToken = null;
+      try {
+        if (typeof window !== 'undefined' && window.__initial_auth_token) {
+          initialToken = window.__initial_auth_token;
+        }
+      } catch (tokenErr) {
+        console.warn("Token check error:", tokenErr);
+      }
+
+      if (initialToken) {
+        try {
+          await signInWithCustomToken(auth, initialToken);
+          return;
+        } catch (customAuthErr) {
+          console.warn("Custom token authentication failed, falling back to anonymous auth:", customAuthErr);
+        }
+      }
+
+      try {
+        await signInAnonymously(auth);
+      } catch (anonErr) {
+        console.warn("Anonymous authentication failed:", anonErr);
+      }
+    }
+
+    if (auth) {
+      onAuthStateChanged(auth, (user) => {
+        if (user && !window.customAuthActive) {
+          currentUser = user;
+          const displayName = user.displayName || user.email || `User (${user.uid.substring(0, 5)})`;
+          const accountEmail = user.email || (user.isAnonymous ? "Guest Mode" : user.uid);
+          
+          const authText = document.getElementById('authBadgeText');
+          const profEmail = document.getElementById('profAccountEmail');
+
+          if (authText) authText.innerText = displayName;
+          if (profEmail) profEmail.innerText = accountEmail;
+
+          updateSyncStatusUI(true, user.uid);
+          listenToRealtimeExpenses(user.uid);
+        }
+      });
+    }
+
+    function updateSyncStatusUI(active, uid) {
+      const label = document.getElementById('syncStatusLabel');
+      const pulse = document.getElementById('syncPulse');
+      const dot = document.getElementById('syncDot');
+
+      if (active) {
+        if (label) label.innerText = `Cloud Sync Active (${uid ? uid.substring(0, 6) : 'User'}...)`;
+        if (pulse) pulse.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+        if (dot) dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
+      } else {
+        if (label) label.innerText = "Local Session Mode";
+        if (pulse) pulse.className = "hidden";
+        if (dot) dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500";
+      }
+    }
+
+    function listenToRealtimeExpenses(userId) {
+      if (!db || window.customAuthActive) return;
+      if (expensesUnsubscribe) expensesUnsubscribe();
+
+      const expensesColRef = collection(db, 'artifacts', appId, 'users', userId, 'expenses');
+
+      expensesUnsubscribe = onSnapshot(expensesColRef, (snapshot) => {
+        const loaded = [];
+        snapshot.forEach((docSnap) => {
+          loaded.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        if (loaded.length > 0 && !window.freshAccountJustCreated) {
+          window.expenses = loaded;
+          try {
+            localStorage.setItem('smarttracker_expenses', JSON.stringify(window.expenses));
+          } catch (err) {
+            console.warn("Could not save synced expenses locally:", err);
+          }
+          window.renderAllViews();
+        }
+      }, (error) => {
+        console.warn("Firestore Realtime Sync Notice:", error);
+      });
+    }
+
+    window.cloudInsertExpense = async function(item) {
+      if (!db || !currentUser || window.customAuthActive) return;
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'expenses', item.id);
+        await setDoc(docRef, item);
+      } catch (err) {
+        console.warn("Cloud insert fallback to local state:", err);
+      }
+    };
+
+    window.cloudDeleteExpense = async function(id) {
+      if (!db || !currentUser || window.customAuthActive) return;
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'expenses', id);
+        await deleteDoc(docRef);
+      } catch (err) {
+        console.warn("Cloud delete fallback to local state:", err);
+      }
+    };
+
+    window.cloudBatchInsert = async function(items) {
+      if (!db || !currentUser || window.customAuthActive) return;
+      for (const item of items) {
+        try {
+          const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'expenses', item.id);
+          await setDoc(docRef, item);
+        } catch (err) {
+          console.warn("Batch item insert error:", err);
+        }
+      }
+    };
+
+    window.customAuthActive = true;
+
+    window.handleLoginSubmit = function(e) {
+      if (e) e.preventDefault();
+      window.hideAuthAlert();
+      const email = document.getElementById('loginEmail')?.value.trim();
+      const password = document.getElementById('loginPassword')?.value;
+
+      if (!email || !password) {
+        window.showAuthAlert("Please enter email and password");
+        return;
+      }
+
+      let usersDB = {};
+      try {
+        usersDB = JSON.parse(localStorage.getItem('smarttracker_users_db') || '{}');
+      } catch (err) {
+        usersDB = {};
+      }
+
+      const existingUser = usersDB[email];
+      if (!existingUser || existingUser.password !== password) {
+        window.showAuthAlert("Invalid email or password. Please check your details or register.");
+        return;
+      }
+
+      window.userProfile = {
+        name: existingUser.name,
+        phone: existingUser.phone,
+        currency: existingUser.currency,
+        income: existingUser.income,
+        email: existingUser.email
+      };
+
+      try {
+        localStorage.setItem('smarttracker_user', JSON.stringify(window.userProfile));
+      } catch (err) {
+        console.warn("Could not save profile:", err);
+      }
+
+      let userExpenses = [];
+      try {
+        const allExpDB = JSON.parse(localStorage.getItem('smarttracker_all_expenses_db') || '{}');
+        userExpenses = allExpDB[email] || [];
+      } catch (err) {
+        userExpenses = [];
+      }
+
+      window.expenses = userExpenses;
+      try {
+        localStorage.setItem('smarttracker_expenses', JSON.stringify(window.expenses));
+      } catch (err) {
+        console.warn("Could not save expenses:", err);
+      }
+
+      const authText = document.getElementById('authBadgeText');
+      const profEmail = document.getElementById('profAccountEmail');
+      if (authText) authText.innerText = existingUser.name;
+      if (profEmail) profEmail.innerText = email;
+
+      window.updateProfileUI();
+      window.renderAllViews();
+      window.showToast(`Welcome back, ${existingUser.name}!`);
+      window.closeAuthModal();
+    };
+
+    window.handleRegisterSubmit = function(e) {
+      if (e) e.preventDefault();
+      window.hideAuthAlert();
+      const name = document.getElementById('regName')?.value.trim();
+      const phone = document.getElementById('regPhone')?.value.trim();
+      const email = document.getElementById('regEmail')?.value.trim();
+      const password = document.getElementById('regPassword')?.value;
+      const currency = document.getElementById('regCurrency')?.value || '₹';
+      const income = parseFloat(document.getElementById('regIncome')?.value) || 50000;
+
+      if (!email || !password || !name) {
+        window.showAuthAlert("Please fill in all required fields.");
+        return;
+      }
+
+      let usersDB = {};
+      try {
+        usersDB = JSON.parse(localStorage.getItem('smarttracker_users_db') || '{}');
+      } catch (err) {
+        usersDB = {};
+      }
+
+      if (usersDB[email]) {
+        window.showAuthAlert("This email is already registered. Please log in.");
+        return;
+      }
+
+      usersDB[email] = { name, phone, email, password, currency, income };
+      try {
+        localStorage.setItem('smarttracker_users_db', JSON.stringify(usersDB));
+      } catch (err) {
+        console.warn("Could not save users DB:", err);
+      }
+
+      window.userProfile = { name, phone, currency, income, email };
+      try {
+        localStorage.setItem('smarttracker_user', JSON.stringify(window.userProfile));
+      } catch (err) {
+        console.warn("Could not save profile:", err);
+      }
+
+      window.freshAccountJustCreated = true;
+      window.expenses = [];
+      try {
+        localStorage.setItem('smarttracker_expenses', JSON.stringify([]));
+        let allExpDB = {};
+        try {
+          allExpDB = JSON.parse(localStorage.getItem('smarttracker_all_expenses_db') || '{}');
+        } catch (err) {
+          allExpDB = {};
+        }
+        allExpDB[email] = [];
+        localStorage.setItem('smarttracker_all_expenses_db', JSON.stringify(allExpDB));
+      } catch (err) {
+        console.warn("Could not initialize expenses:", err);
+      }
+
+      const authText = document.getElementById('authBadgeText');
+      const profEmail = document.getElementById('profAccountEmail');
+      if (authText) authText.innerText = name;
+      if (profEmail) profEmail.innerText = email;
+
+      window.updateProfileUI();
+      window.renderAllViews();
+      window.showToast(`Welcome ${name}! Account created successfully.`);
+      window.closeAuthModal();
+    };
+
+    window.handleSignOut = function() {
+      window.userProfile = {
+        name: "Financial User",
+        phone: "+91 9876543210",
+        currency: "₹",
+        income: 50000
+      };
+      window.expenses = [];
+      try {
+        localStorage.removeItem('smarttracker_user');
+        localStorage.removeItem('smarttracker_expenses');
+      } catch (err) {
+        console.warn("Sign out storage error:", err);
+      }
+
+      const authText = document.getElementById('authBadgeText');
+      const profEmail = document.getElementById('profAccountEmail');
+      if (authText) authText.innerText = "Sign In / Register";
+      if (profEmail) profEmail.innerText = "Guest Mode";
+
+      window.updateProfileUI();
+      window.renderAllViews();
+      window.showToast("Signed out successfully", "info");
+      window.closeProfileModal();
+    };
+  </script>
+</body>
+</html>
